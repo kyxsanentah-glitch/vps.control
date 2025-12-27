@@ -2,27 +2,38 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Terminal, Server, Trash2, RotateCw, Power, ShieldAlert, Copy, LogOut, Cpu, Activity, MapPin, Save } from 'lucide-react';
+import { Terminal, Server, Trash2, RotateCw, Power, Copy, LogOut, Cpu, Activity, MapPin, Save, ShieldAlert } from 'lucide-react';
 
+// --- DATA LENGKAP (SAMA PERSIS DENGAN PYTHON) ---
 const REGIONS = [
-  { name: "🇸🇬 Singapore", slug: "sgp1" },
-  { name: "🇺🇸 New York", slug: "nyc1" },
-  { name: "🇬🇧 London", slug: "lon1" },
-  { name: "🇳🇱 Amsterdam", slug: "ams3" },
-  { name: "🇮🇳 Bangalore", slug: "blr1" },
+  { name: "🇸🇬 Singapore (SGP1)", slug: "sgp1" },
+  { name: "🇺🇸 New York 1 (NYC1)", slug: "nyc1" },
+  { name: "🇺🇸 New York 3 (NYC3)", slug: "nyc3" },
+  { name: "🇺🇸 San Francisco 3 (SFO3)", slug: "sfo3" },
+  { name: "🇳🇱 Amsterdam 3 (AMS3)", slug: "ams3" },
+  { name: "🇬🇧 London 1 (LON1)", slug: "lon1" },
+  { name: "🇩🇪 Frankfurt 1 (FRA1)", slug: "fra1" },
+  { name: "🇨🇦 Toronto 1 (TOR1)", slug: "tor1" },
+  { name: "🇮🇳 Bangalore 1 (BLR1)", slug: "blr1" },
+  { name: "🇦🇺 Sydney 1 (SYD1)", slug: "syd1" },
 ];
 
 const SIZES = [
-  { name: "🔥 AMD 1GB ($7)", slug: "s-1vcpu-1gb-amd" },
-  { name: "🔥 AMD 2GB ($14)", slug: "s-1vcpu-2gb-amd" },
-  { name: "🔥 AMD 4GB ($28)", slug: "s-2vcpu-4gb-amd" },
-  { name: "🔥 AMD 8GB ($56)", slug: "s-4vcpu-8gb-amd" },
+  { name: "🔥 AMD 1 GB / 1 vCPU", slug: "s-1vcpu-1gb-amd" },
+  { name: "🔥 AMD 2 GB / 1 vCPU", slug: "s-1vcpu-2gb-amd" },
+  { name: "🔥 AMD 2 GB / 2 vCPU", slug: "s-2vcpu-2gb-amd" },
+  { name: "🔥 AMD 4 GB / 2 vCPU", slug: "s-2vcpu-4gb-amd" },
+  { name: "🔥 AMD 8 GB / 2 vCPU", slug: "s-2vcpu-8gb-amd" },
+  { name: "🔥 AMD 8 GB / 4 vCPU", slug: "s-4vcpu-8gb-amd" },
+  { name: "🔥 AMD 16 GB / 4 vCPU", slug: "s-4vcpu-16gb-amd" },
+  { name: "🔥 AMD 16 GB / 8 vCPU", slug: "s-8vcpu-16gb-amd" },
 ];
 
 const IMAGES = [
   { name: "Ubuntu 22.04 LTS", slug: "ubuntu-22-04-x64" },
+  { name: "Ubuntu 20.04 LTS", slug: "ubuntu-20-04-x64" },
   { name: "Debian 11", slug: "debian-11-x64" },
-  { name: "CentOS 9", slug: "centos-stream-9-x64" },
+  { name: "CentOS Stream 9", slug: "centos-stream-9-x64" },
 ];
 
 export default function Home() {
@@ -66,8 +77,12 @@ export default function Home() {
   };
 
   const generatePass = () => {
-    const suffix = Math.random().toString(36).slice(-6);
-    return `Kyxzan${suffix}!`;
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+    let suffix = '';
+    for (let i = 0; i < 6; i++) {
+      suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `Kyxzan${suffix}`;
   };
 
   const handleDeploy = async () => {
@@ -93,6 +108,7 @@ ssh_pwauth: True`;
 
       const dropletId = res.droplet.id;
       let ip = null;
+      // Polling IP Address
       for (let i = 0; i < 20; i++) {
         await new Promise(r => setTimeout(r, 3000));
         const check = await callDO(`/droplets/${dropletId}`);
@@ -256,6 +272,11 @@ ssh_pwauth: True`;
                       <button onClick={() => navigator.clipboard.writeText(deployResult.password)} className="text-gray-400 hover:text-white"><Copy size={18}/></button>
                     </div>
                   </div>
+                </div>
+                <div className="mt-4 bg-black/30 p-3 rounded font-mono text-xs text-gray-400">
+                    <p># Login via Termius / SSH:</p>
+                    <p className="text-green-300">ssh root@{deployResult.ip}</p>
+                    <p>PORT: 22</p>
                 </div>
               </div>
             )}
