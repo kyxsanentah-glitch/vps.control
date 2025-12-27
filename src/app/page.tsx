@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Terminal, Server, Trash2, RotateCw, Power, Copy, LogOut, Cpu, Activity, MapPin, Save, MessageSquare, Send } from 'lucide-react';
+import { Terminal, Server, Trash2, RotateCw, Power, Copy, LogOut, Cpu, Activity, MapPin, Save, ShieldAlert } from 'lucide-react';
 
-// --- DATA DIKEMBALIKAN UTUH (SAMA PERSIS) ---
+// --- DATA LENGKAP (SAMA PERSIS DENGAN PYTHON) ---
 const REGIONS = [
   { name: "🇸🇬 Singapore (SGP1)", slug: "sgp1" },
   { name: "🇺🇸 New York 1 (NYC1)", slug: "nyc1" },
@@ -39,7 +39,7 @@ const IMAGES = [
 export default function Home() {
   const [token, setToken] = useState('');
   const [isLogin, setIsLogin] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'list' | 'feedback'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
   
   const [hostName, setHostName] = useState('kyxzan-server');
   const [region, setRegion] = useState(REGIONS[0].slug);
@@ -49,11 +49,28 @@ export default function Home() {
   const [deployResult, setDeployResult] = useState<any>(null);
   const [droplets, setDroplets] = useState<any[]>([]);
   const [rebuildImg, setRebuildImg] = useState<{ [key: number]: string }>({});
+  const [logs, setLogs] = useState<{msg: string, time: string}[]>([]);
+  const addLog = (message: string) => {
+  const now = new Date();
+  const timeString = now.toLocaleTimeString('en-GB', { hour12: false });
+  setLogs(prev => [...prev, { msg: message, time: timeString }].slice(-50));
+};
 
-  // Feedback State
-  const [fbMessage, setFbMessage] = useState('');
-  const [fbSender, setFbSender] = useState('');
-  const [fbLoading, setFbLoading] = useState(false);
+useEffect(() => {
+  const terminal = document.getElementById('terminal-body');
+  if (terminal) terminal.scrollTop = terminal.scrollHeight;
+}, [logs]);
+
+// Auto-refresh daftar server tiap 10 detik jika tab 'list' aktif
+useEffect(() => {
+  let interval: any;
+  if (isLogin && activeTab === 'list') {
+    interval = setInterval(() => {
+      fetchDroplets();
+    }, 10000); // 10 detik
+  }
+  return () => clearInterval(interval);
+}, [isLogin, activeTab]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('do_token');
@@ -61,10 +78,11 @@ export default function Home() {
   }, []);
 
   const handleLogin = () => {
-    if (!token) return alert("Token kosong!");
-    localStorage.setItem('do_token', token);
-    setIsLogin(true);
-  };
+  if (!token) return alert("Token kosong!");
+  localStorage.setItem('do_token', token);
+  setIsLogin(true);
+  addLog("System initialized. API Token authenticated."); 
+};
 
   const handleLogout = () => {
     localStorage.removeItem('do_token');
@@ -91,8 +109,9 @@ export default function Home() {
   };
 
   const handleDeploy = async () => {
-    setLoading(true);
-    setDeployResult(null);
+  setLoading(true);
+  setDeployResult(null);
+  addLog(`Requesting new droplet: ${hostName}...`); 
     try {
       const password = generatePass();
       const userData = `#cloud-config
@@ -110,18 +129,23 @@ ssh_pwauth: True`;
         user_data: userData,
         backups: false
       });
-
+     addLog(`Droplet created (ID: ${res.droplet.id}). Provisioning OS...`); 
+     
       const dropletId = res.droplet.id;
       let ip = null;
+      // Polling IP Address
       for (let i = 0; i < 20; i++) {
+     addLog(`Waiting for network interface... (${i+1}/20)`); 
         await new Promise(r => setTimeout(r, 3000));
         const check = await callDO(`/droplets/${dropletId}`);
         if (check.droplet.networks.v4.length > 0) {
           ip = check.droplet.networks.v4[0].ip_address;
+          addLog(`Network ready! IP Assigned: ${ip}`);
           break;
         }
       }
       setDeployResult({ ip: ip || "Wait...", password, name: hostName });
+    addLog("System deployment completed successfully.");
     } catch (err: any) {
       alert("Gagal: " + err.message);
     } finally {
@@ -137,7 +161,8 @@ ssh_pwauth: True`;
   };
 
   const handleAction = async (id: number, type: string, payload: any = null) => {
-    if (!confirm(`Confirm ${type}?`)) return;
+  if (!confirm(`Confirm ${type}?`)) return;
+  addLog(`Executing remote command: ${type.toUpperCase()} on ID ${id}...`);
     try {
       if (type === 'delete') {
         await callDO(`/droplets/${id}`, 'DELETE');
@@ -147,26 +172,9 @@ ssh_pwauth: True`;
       } else {
         await callDO(`/droplets/${id}/actions`, 'POST', { type });
       }
+    addLog(`Command ${type} executed successfully.`);
       alert(`Success: ${type}`);
     } catch (err: any) { alert("Error: " + err.message); }
-  };
-
-  // --- LOGIC KIRIM SARAN ---
-  const handleSendFeedback = async () => {
-    if (!fbMessage) return alert("Isi pesan dulu bro!");
-    setFbLoading(true);
-    try {
-      await axios.post('/api/feedback', {
-        message: fbMessage,
-        sender: fbSender || 'User App'
-      });
-      alert("✅ Saran berhasil dikirim ke Owner!");
-      setFbMessage('');
-    } catch (err) {
-      alert("❌ Gagal kirim saran. Coba lagi.");
-    } finally {
-      setFbLoading(false);
-    }
   };
 
   if (!isLogin) {
@@ -234,12 +242,6 @@ ssh_pwauth: True`;
             className={`flex-1 py-3 rounded-xl font-bold transition-all border ${activeTab === 'list' ? 'bg-cyan-600/20 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(0,229,255,0.1)]' : 'bg-gray-800/40 border-gray-700 text-gray-500 hover:bg-gray-800'}`}
           >
             📋 SERVER LIST
-          </button>
-          <button 
-            onClick={() => setActiveTab('feedback')} 
-            className={`flex-1 py-3 rounded-xl font-bold transition-all border ${activeTab === 'feedback' ? 'bg-purple-600/20 border-purple-500 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.1)]' : 'bg-gray-800/40 border-gray-700 text-gray-500 hover:bg-gray-800'}`}
-          >
-            📩 FEEDBACK
           </button>
         </div>
 
@@ -310,7 +312,7 @@ ssh_pwauth: True`;
             )}
           </div>
         )}
-
+       
         {/* LIST TAB */}
         {activeTab === 'list' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in slide-in-from-bottom-4 duration-500">
@@ -351,51 +353,47 @@ ssh_pwauth: True`;
             {droplets.length === 0 && <p className="col-span-full text-center text-gray-500 py-10">NO ACTIVE SERVERS DETECTED</p>}
           </div>
         )}
-
-        {/* FEEDBACK TAB (BARU!) */}
-        {activeTab === 'feedback' && (
-          <div className="glass-panel p-8 rounded-2xl border border-purple-900/30 animate-in fade-in zoom-in duration-300 max-w-2xl mx-auto">
-             <div className="text-center mb-8">
-               <div className="bg-purple-900/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
-                 <MessageSquare size={32} className="text-purple-400" />
-               </div>
-               <h2 className="text-2xl font-bold text-white">Send Suggestion</h2>
-               <p className="text-gray-400 text-sm">Punya ide fitur atau nemu bug? Kirim langsung ke Owner.</p>
-             </div>
-
-             <div className="space-y-4">
-               <div>
-                 <label className="text-xs font-bold text-purple-500 uppercase ml-1">Nama / Kontak (Opsional)</label>
-                 <input 
-                   className="w-full bg-gray-900/80 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition"
-                   placeholder="Nama kamu..."
-                   value={fbSender}
-                   onChange={e => setFbSender(e.target.value)}
-                 />
-               </div>
-               
-               <div>
-                 <label className="text-xs font-bold text-purple-500 uppercase ml-1">Pesan / Saran</label>
-                 <textarea 
-                   className="w-full bg-gray-900/80 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition h-32"
-                   placeholder="Tulis saran kamu disini..."
-                   value={fbMessage}
-                   onChange={e => setFbMessage(e.target.value)}
-                 />
-               </div>
-
-               <button 
-                 onClick={handleSendFeedback}
-                 disabled={fbLoading}
-                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 py-4 rounded-xl font-bold text-white text-lg shadow-lg shadow-purple-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-               >
-                 {fbLoading ? "SENDING..." : <><Send size={18} /> KIRIM SARAN</>}
-               </button>
-             </div>
-          </div>
-        )}
-
       </div>
+      
+{/* TERMINAL CONSOLE LOG */}
+<div className="mt-8">
+  <div className="bg-black/80 border border-gray-800 rounded-t-xl p-3 flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <div className="flex gap-1.5">
+        <div className="w-3 h-3 rounded-full bg-red-500/50"></div>
+        <div className="w-3 h-3 rounded-full bg-yellow-500/50"></div>
+        <div className="w-3 h-3 rounded-full bg-green-500/50"></div>
+      </div>
+      <span className="text-[10px] font-mono text-gray-500 ml-2 uppercase tracking-widest font-bold">System Activity Log</span>
+    </div>
+    <button 
+      onClick={() => setLogs([])}
+      className="text-[10px] text-gray-500 hover:text-white transition font-mono"
+    >
+      [ CLEAR ]
+    </button>
+  </div>
+  
+  <div 
+    id="terminal-body"
+    className="bg-[#050505] border-x border-b border-gray-800 rounded-b-xl h-48 overflow-y-auto p-4 font-mono text-sm shadow-inner"
+  >
+    {logs.length === 0 ? (
+      <p className="text-gray-700 italic">Waiting for system commands...</p>
+    ) : (
+      logs.map((log, i) => (
+        <div key={i} className="flex gap-3 mb-1 animate-in fade-in slide-in-from-left-2 duration-300">
+          <span className="text-gray-600">[{log.time}]</span>
+          <span className="text-cyan-500/80 tracking-tight">
+            <span className="text-white mr-2">➜</span> 
+            {log.msg}
+          </span>
+        </div>
+      ))
+    )}
+  </div>
+</div>
+
     </div>
   );
 }
