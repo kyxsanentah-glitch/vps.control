@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Terminal, Server, Trash2, RotateCw, Power, Copy, LogOut, Cpu, Activity, MapPin, Save, ShieldAlert } from 'lucide-react';
+import { Terminal, Server, Trash2, RotateCw, Power, Copy, LogOut, Cpu, Activity, MapPin, Save, MessageSquare, Send } from 'lucide-react';
 
-// --- DATA LENGKAP (SAMA PERSIS DENGAN PYTHON) ---
+// --- DATA DIKEMBALIKAN UTUH (SAMA PERSIS) ---
 const REGIONS = [
   { name: "🇸🇬 Singapore (SGP1)", slug: "sgp1" },
   { name: "🇺🇸 New York 1 (NYC1)", slug: "nyc1" },
@@ -39,7 +39,7 @@ const IMAGES = [
 export default function Home() {
   const [token, setToken] = useState('');
   const [isLogin, setIsLogin] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'list' | 'feedback'>('create');
   
   const [hostName, setHostName] = useState('kyxzan-server');
   const [region, setRegion] = useState(REGIONS[0].slug);
@@ -49,6 +49,11 @@ export default function Home() {
   const [deployResult, setDeployResult] = useState<any>(null);
   const [droplets, setDroplets] = useState<any[]>([]);
   const [rebuildImg, setRebuildImg] = useState<{ [key: number]: string }>({});
+
+  // Feedback State
+  const [fbMessage, setFbMessage] = useState('');
+  const [fbSender, setFbSender] = useState('');
+  const [fbLoading, setFbLoading] = useState(false);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('do_token');
@@ -108,7 +113,6 @@ ssh_pwauth: True`;
 
       const dropletId = res.droplet.id;
       let ip = null;
-      // Polling IP Address
       for (let i = 0; i < 20; i++) {
         await new Promise(r => setTimeout(r, 3000));
         const check = await callDO(`/droplets/${dropletId}`);
@@ -145,6 +149,24 @@ ssh_pwauth: True`;
       }
       alert(`Success: ${type}`);
     } catch (err: any) { alert("Error: " + err.message); }
+  };
+
+  // --- LOGIC KIRIM SARAN ---
+  const handleSendFeedback = async () => {
+    if (!fbMessage) return alert("Isi pesan dulu bro!");
+    setFbLoading(true);
+    try {
+      await axios.post('/api/feedback', {
+        message: fbMessage,
+        sender: fbSender || 'User App'
+      });
+      alert("✅ Saran berhasil dikirim ke Owner!");
+      setFbMessage('');
+    } catch (err) {
+      alert("❌ Gagal kirim saran. Coba lagi.");
+    } finally {
+      setFbLoading(false);
+    }
   };
 
   if (!isLogin) {
@@ -212,6 +234,12 @@ ssh_pwauth: True`;
             className={`flex-1 py-3 rounded-xl font-bold transition-all border ${activeTab === 'list' ? 'bg-cyan-600/20 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(0,229,255,0.1)]' : 'bg-gray-800/40 border-gray-700 text-gray-500 hover:bg-gray-800'}`}
           >
             📋 SERVER LIST
+          </button>
+          <button 
+            onClick={() => setActiveTab('feedback')} 
+            className={`flex-1 py-3 rounded-xl font-bold transition-all border ${activeTab === 'feedback' ? 'bg-purple-600/20 border-purple-500 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.1)]' : 'bg-gray-800/40 border-gray-700 text-gray-500 hover:bg-gray-800'}`}
+          >
+            📩 FEEDBACK
           </button>
         </div>
 
@@ -323,6 +351,50 @@ ssh_pwauth: True`;
             {droplets.length === 0 && <p className="col-span-full text-center text-gray-500 py-10">NO ACTIVE SERVERS DETECTED</p>}
           </div>
         )}
+
+        {/* FEEDBACK TAB (BARU!) */}
+        {activeTab === 'feedback' && (
+          <div className="glass-panel p-8 rounded-2xl border border-purple-900/30 animate-in fade-in zoom-in duration-300 max-w-2xl mx-auto">
+             <div className="text-center mb-8">
+               <div className="bg-purple-900/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
+                 <MessageSquare size={32} className="text-purple-400" />
+               </div>
+               <h2 className="text-2xl font-bold text-white">Send Suggestion</h2>
+               <p className="text-gray-400 text-sm">Punya ide fitur atau nemu bug? Kirim langsung ke Owner.</p>
+             </div>
+
+             <div className="space-y-4">
+               <div>
+                 <label className="text-xs font-bold text-purple-500 uppercase ml-1">Nama / Kontak (Opsional)</label>
+                 <input 
+                   className="w-full bg-gray-900/80 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition"
+                   placeholder="Nama kamu..."
+                   value={fbSender}
+                   onChange={e => setFbSender(e.target.value)}
+                 />
+               </div>
+               
+               <div>
+                 <label className="text-xs font-bold text-purple-500 uppercase ml-1">Pesan / Saran</label>
+                 <textarea 
+                   className="w-full bg-gray-900/80 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition h-32"
+                   placeholder="Tulis saran kamu disini..."
+                   value={fbMessage}
+                   onChange={e => setFbMessage(e.target.value)}
+                 />
+               </div>
+
+               <button 
+                 onClick={handleSendFeedback}
+                 disabled={fbLoading}
+                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 py-4 rounded-xl font-bold text-white text-lg shadow-lg shadow-purple-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+               >
+                 {fbLoading ? "SENDING..." : <><Send size={18} /> KIRIM SARAN</>}
+               </button>
+             </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
