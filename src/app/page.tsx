@@ -61,13 +61,13 @@ useEffect(() => {
   if (terminal) terminal.scrollTop = terminal.scrollHeight;
 }, [logs]);
 
-// Auto-refresh daftar server tiap 10 detik jika tab 'list' aktif
+// AUTO-REFRESH: Cek status server tiap 10 detik kalau lagi buka tab list
 useEffect(() => {
   let interval: any;
   if (isLogin && activeTab === 'list') {
     interval = setInterval(() => {
       fetchDroplets();
-    }, 10000); // 10 detik
+    }, 10000); 
   }
   return () => clearInterval(interval);
 }, [isLogin, activeTab]);
@@ -314,45 +314,60 @@ ssh_pwauth: True`;
         )}
        
         {/* LIST TAB */}
-        {activeTab === 'list' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in slide-in-from-bottom-4 duration-500">
-            {droplets.map(d => (
-              <div key={d.id} className="glass-panel p-5 rounded-xl border border-gray-700 hover:border-cyan-500/50 transition-all group">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="font-bold text-lg text-white group-hover:text-cyan-400 transition-colors">{d.name}</h3>
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-1 font-mono">
-                      <span className={`w-2 h-2 rounded-full ${d.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
-                      {d.status.toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-mono text-gray-300">{d.networks.v4[0]?.ip_address || '...'}</p>
-                    <p className="text-xs text-gray-500">{d.region.slug}</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 mb-4">
-                  <button onClick={() => handleAction(d.id, 'reboot')} className="flex-1 bg-yellow-500/10 text-yellow-500 py-2 rounded hover:bg-yellow-500/20 text-xs font-bold border border-yellow-500/20">REBOOT</button>
-                  <button onClick={() => handleAction(d.id, 'power_off')} className="flex-1 bg-orange-500/10 text-orange-500 py-2 rounded hover:bg-orange-500/20 text-xs font-bold border border-orange-500/20">OFF</button>
-                  <button onClick={() => handleAction(d.id, 'delete')} className="flex-1 bg-red-500/10 text-red-500 py-2 rounded hover:bg-red-500/20 text-xs font-bold border border-red-500/20">DEL</button>
-                </div>
-
-                <div className="pt-3 border-t border-gray-700/50 flex gap-2">
-                   <select 
-                      className="bg-black/30 text-xs text-gray-400 border border-gray-700 rounded px-2 outline-none flex-1"
-                      onChange={(e) => setRebuildImg({ ...rebuildImg, [d.id]: e.target.value })}
-                      value={rebuildImg[d.id] || IMAGES[0].slug}
-                    >
-                      {IMAGES.map(i => <option key={i.slug} value={i.slug}>{i.name}</option>)}
-                    </select>
-                   <button onClick={() => handleAction(d.id, 'rebuild', rebuildImg[d.id] || IMAGES[0].slug)} className="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded text-xs"><RotateCw size={14}/></button>
-                </div>
+{activeTab === 'list' && (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in slide-in-from-bottom-4 duration-500">
+    {droplets.map(d => {
+      const ip = d.networks.v4[0]?.ip_address || '...';
+      return (
+        <div key={d.id} className="glass-panel p-5 rounded-xl border border-gray-700 hover:border-cyan-500/50 transition-all group relative overflow-hidden">
+          {/* Subtle Glow Effect for Active Servers */}
+          {d.status === 'active' && <div className="absolute -top-10 -right-10 w-20 h-20 bg-green-500/10 blur-3xl rounded-full"></div>}
+          
+          <div className="flex justify-between items-start mb-4 relative z-10">
+            <div>
+              <h3 className="font-bold text-lg text-white group-hover:text-cyan-400 transition-colors">{d.name}</h3>
+              <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1 font-mono">
+                <span className={`w-2 h-2 rounded-full animate-pulse ${d.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
+                {d.status.toUpperCase()}
               </div>
-            ))}
-            {droplets.length === 0 && <p className="col-span-full text-center text-gray-500 py-10">NO ACTIVE SERVERS DETECTED</p>}
+            </div>
+            <div className="text-right">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(ip);
+                  addLog(`IP Copied: ${ip}`);
+                }}
+                className="flex items-center gap-1.5 bg-gray-900/50 hover:bg-cyan-500/20 px-2 py-1 rounded border border-gray-700 hover:border-cyan-500/50 transition group/btn"
+              >
+                <p className="text-xs font-mono text-gray-300 group-hover/btn:text-cyan-400">{ip}</p>
+                <Copy size={12} className="text-gray-500 group-hover/btn:text-cyan-400" />
+              </button>
+              <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">{d.region.slug} | {d.vcpus} CPU</p>
+            </div>
           </div>
-        )}
+
+          <div className="flex gap-2 mb-4 relative z-10">
+            <button onClick={() => handleAction(d.id, 'reboot')} className="flex-1 bg-yellow-500/10 text-yellow-500 py-2 rounded hover:bg-yellow-500/20 text-xs font-bold border border-yellow-500/20 transition-all active:scale-95">REBOOT</button>
+            <button onClick={() => handleAction(d.id, 'power_off')} className="flex-1 bg-orange-500/10 text-orange-500 py-2 rounded hover:bg-orange-500/20 text-xs font-bold border border-orange-500/20 transition-all active:scale-95">OFF</button>
+            <button onClick={() => handleAction(d.id, 'delete')} className="flex-1 bg-red-500/10 text-red-500 py-2 rounded hover:bg-red-500/20 text-xs font-bold border border-red-500/20 transition-all active:scale-95">DEL</button>
+          </div>
+
+          <div className="pt-3 border-t border-gray-700/50 flex gap-2 relative z-10">
+             <select 
+                className="bg-black/30 text-[10px] text-gray-400 border border-gray-700 rounded px-2 outline-none flex-1 focus:border-cyan-500/50"
+                onChange={(e) => setRebuildImg({ ...rebuildImg, [d.id]: e.target.value })}
+                value={rebuildImg[d.id] || IMAGES[0].slug}
+              >
+                {IMAGES.map(i => <option key={i.slug} value={i.slug} className="bg-gray-900">{i.name}</option>)}
+              </select>
+             <button onClick={() => handleAction(d.id, 'rebuild', rebuildImg[d.id] || IMAGES[0].slug)} className="bg-gray-800 hover:bg-cyan-600 text-white p-2 rounded transition-colors shadow-lg shadow-cyan-900/20"><RotateCw size={14}/></button>
+          </div>
+        </div>
+      );
+    })}
+    {droplets.length === 0 && <p className="col-span-full text-center text-gray-500 py-10 font-mono tracking-widest animate-pulse">NO ACTIVE SERVERS DETECTED</p>}
+  </div>
+)}
       </div>
       
 {/* TERMINAL CONSOLE LOG */}
